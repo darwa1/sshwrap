@@ -1,5 +1,5 @@
 " ==========================================
-" ~/.vimrc — shrap ops helpers + fold persistence
+" ~/.vimrc — shrap ops helpers + persistent folds + persistent timestamp highlight
 " ==========================================
 
 " --- FOLD PERSISTENCE (so manual folds survive reopen) ---
@@ -16,12 +16,17 @@ augroup END
 " --- Folding style used by our mappings ---
 set foldmethod=manual
 
-" --- Visual helpers ---
-" Highlight group for timestamp only (before ' -- ')
+" --- Visual: persistent timestamp highlight via syntax ---
+" Highlights ONLY the timestamp portion at the start of a line, before ' -- '
 highlight ShrapTimestamp ctermbg=yellow ctermfg=black guibg=yellow guifg=black
 
-" Track only OUR timestamp match so we don't clobber other matches/plugins
-let g:shrap_ts_matchid = -1
+augroup ShrapSyntax
+  autocmd!
+  " Match: YYYY-MM-DD HH:MM:SS ZZZ -- (highlight only up to just before the space- - -)
+  " This is intentionally a bit flexible on timezone: 2-6 letters (e.g., EST, UTC, PSTDT)
+  autocmd BufRead,BufNewFile * syntax match ShrapTimestamp /^\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2} \u\{2,6}\ze -- /
+  autocmd BufRead,BufNewFile * highlight link ShrapTimestamp ShrapTimestamp
+augroup END
 
 " Exact fold line as requested
 let g:fold_line = '\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
@@ -29,28 +34,17 @@ let g:fold_line = '\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 " ==========================================
 " F5 — Insert timestamp line (no folds)
 "  - Appends: "<timestamp> -- "
-"  - Highlights ONLY the timestamp portion
-"  - Moves cursor to end of line
+"  - Cursor to end of line
 "  - Enters insert mode
+"  - Highlight is syntax-based and persists across sessions
 " ==========================================
 function! ShrapInsertTimestamp()
-  let l:ts_only = strftime('%Y-%m-%d %H:%M:%S %Z')
-  let l:full    = l:ts_only . ' -- '
-
+  let l:full = strftime('%Y-%m-%d %H:%M:%S %Z') . ' -- '
   let l:start = line('.')
+
   call append(l:start, l:full)
   let l:newln = l:start + 1
 
-  " Remove prior timestamp highlight (only ours)
-  if g:shrap_ts_matchid != -1
-    call matchdelete(g:shrap_ts_matchid)
-    let g:shrap_ts_matchid = -1
-  endif
-
-  " Highlight ONLY timestamp part
-  let g:shrap_ts_matchid = matchaddpos('ShrapTimestamp', [[l:newln, 1, len(l:ts_only)]])
-
-  " Cursor to end + insert mode
   call cursor(l:newln, len(l:full) + 1)
   startinsert
 endfunction
